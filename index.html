@@ -1,0 +1,746 @@
+import React, { useState, useEffect } from 'react';
+import {
+  Check, X, ArrowRight, Star, Award,
+  Map, Volume2, ShieldCheck, Ear, Eye, BarChart,
+  Home, RotateCcw, AlertTriangle, CheckCircle2
+} from 'lucide-react';
+
+// --- 模擬 Wonder World 2 單字庫 ---
+const VOCABULARY_DATA = {
+  1: {
+    title: "Unit 1: My Pets",
+    words: [
+      { id: 'w1', word: 'dog', meaning: '狗' },
+      { id: 'w2', word: 'cat', meaning: '貓' },
+      { id: 'w3', word: 'bird', meaning: '鳥' },
+      { id: 'w4', word: 'fish', meaning: '魚' },
+      { id: 'w5', word: 'pig', meaning: '豬' },
+    ]
+  },
+  2: {
+    title: "Unit 2: Yummy Food",
+    words: [
+      { id: 'w6', word: 'apple', meaning: '蘋果' },
+      { id: 'w7', word: 'banana', meaning: '香蕉' },
+      { id: 'w8', word: 'milk', meaning: '牛奶' },
+      { id: 'w9', word: 'juice', meaning: '果汁' },
+      { id: 'w10', word: 'bread', meaning: '麵包' },
+    ]
+  },
+  3: {
+    title: "Unit 3: My Body",
+    words: [
+      { id: 'w11', word: 'head', meaning: '頭' },
+      { id: 'w12', word: 'hand', meaning: '手' },
+      { id: 'w13', word: 'leg', meaning: '腿' },
+      { id: 'w14', word: 'foot', meaning: '腳' },
+      { id: 'w15', word: 'eye', meaning: '眼睛' },
+    ]
+  }
+};
+
+// --- 共用語音播放函數 ---
+const playAudio = (text) => {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.85;
+    window.speechSynthesis.speak(utterance);
+  } else {
+    alert("您的瀏覽器不支援語音播放功能喔！");
+  }
+};
+
+export default function App() {
+  const [currentView, setCurrentView] = useState('home'); // home, map, stage
+  const [activeUnit, setActiveUnit] = useState(null);
+  const [activeStage, setActiveStage] = useState(1);
+  const [highestUnlockedStage, setHighestUnlockedStage] = useState(1);
+
+  // 學習狀態追蹤
+  const [greenWords, setGreenWords] = useState([]);
+  const [redWords, setRedWords] = useState([]);
+  const [quizScores, setQuizScores] = useState({ 4: 0, 5: 0, 6: 0 });
+
+  // 關卡定義
+  const STAGES = [
+    { id: 1, title: '單字探索站', subtitle: 'Word Explorer', icon: Volume2, color: 'bg-blue-400', colorHex: '#60a5fa' },
+    { id: 2, title: '單字紅綠燈', subtitle: 'Traffic Light Check', icon: AlertTriangle, color: 'bg-amber-400', colorHex: '#fbbf24' },
+    { id: 3, title: '單字救援站', subtitle: 'Word Rescue', icon: ShieldCheck, color: 'bg-rose-400', colorHex: '#fb7185' },
+    { id: 4, title: '聽音選字王', subtitle: 'Sound → Word', icon: Ear, color: 'bg-indigo-400', colorHex: '#818cf8' },
+    { id: 5, title: '聽音選意思', subtitle: 'Sound → Meaning', icon: Ear, color: 'bg-violet-400', colorHex: '#a78bfa' },
+    { id: 6, title: '看字選意思', subtitle: 'Word → Meaning', icon: Eye, color: 'bg-fuchsia-400', colorHex: '#e879f9' },
+    { id: 7, title: '學習診斷室', subtitle: 'Learning Report Lab', icon: BarChart, color: 'bg-teal-400', colorHex: '#2dd4bf' },
+  ];
+
+  const handleSelectUnit = (unitId) => {
+    setActiveUnit(unitId);
+    setCurrentView('map');
+    setActiveStage(1);
+    setHighestUnlockedStage(1);
+    setGreenWords([]);
+    setRedWords([]);
+    setQuizScores({ 4: 0, 5: 0, 6: 0 });
+  };
+
+  const handleStageComplete = (stageId) => {
+    if (stageId < 7) {
+      setHighestUnlockedStage((prev) => Math.max(prev, stageId + 1));
+      setActiveStage(stageId + 1);
+      setCurrentView('map');
+    } else {
+      setCurrentView('map');
+    }
+  };
+
+  const HomeView = () => (
+    <div className="flex flex-col items-center justify-center min-h-[70vh] space-y-8 animate-fade-in">
+      <div className="text-center space-y-4">
+        <h1 className="text-5xl font-black text-blue-600 drop-shadow-sm">Wonder World 2</h1>
+        <h2 className="text-3xl font-bold text-gray-700">🎪 單字樂園 🎪</h2>
+        <p className="text-gray-500 text-lg">選擇一個單元，開始你的闖關之旅！</p>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-4xl px-4">
+        {Object.entries(VOCABULARY_DATA).map(([id, unit]) => (
+          <button
+            key={id}
+            onClick={() => handleSelectUnit(Number(id))}
+            className="group relative bg-white rounded-3xl p-6 shadow-xl hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border-4 border-transparent hover:border-blue-400 overflow-hidden"
+          >
+            <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-blue-100 rounded-full opacity-50 group-hover:scale-150 transition-transform duration-500 z-0"></div>
+            <div className="relative z-10 flex flex-col items-center space-y-4">
+              <div className="w-16 h-16 bg-blue-500 text-white rounded-2xl flex items-center justify-center text-2xl font-bold shadow-md">
+                U{id}
+              </div>
+              <h3 className="text-xl font-bold text-gray-800">{unit.title}</h3>
+              <p className="text-gray-500">{unit.words.length} 個單字</p>
+              <div className="flex items-center text-blue-500 font-bold opacity-0 group-hover:opacity-100 transition-opacity">
+                開始闖關 <ArrowRight className="ml-2 w-5 h-5" />
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+
+  const MapView = () => (
+    <div className="flex flex-col items-center py-8 animate-fade-in w-full max-w-5xl mx-auto px-4">
+      <div className="flex items-center justify-between w-full mb-12 bg-white p-4 rounded-2xl shadow-sm">
+        <button onClick={() => setCurrentView('home')} className="flex items-center text-gray-500 hover:text-blue-500 transition-colors">
+          <Home className="w-6 h-6 mr-2" /> 回首頁
+        </button>
+        <h2 className="text-2xl font-bold text-gray-800">{VOCABULARY_DATA[activeUnit].title} 冒險地圖</h2>
+        <div className="w-24"></div>
+      </div>
+
+      <div className="relative w-full overflow-x-auto pb-12 pt-4">
+        <div className="flex items-center min-w-max px-8">
+          {STAGES.map((stage, index) => {
+            const isUnlocked = stage.id <= highestUnlockedStage;
+            const isCompleted = stage.id < highestUnlockedStage;
+            const Icon = stage.icon;
+
+            return (
+              <React.Fragment key={stage.id}>
+                <div
+                  className="flex flex-col items-center relative z-10 group cursor-pointer"
+                  onClick={() => isUnlocked && (setActiveStage(stage.id), setCurrentView('stage'))}
+                >
+                  <div
+                    className={`w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-transform duration-300 border-4 ${
+                      isUnlocked
+                        ? `text-white group-hover:scale-110`
+                        : 'bg-gray-200 border-gray-300 text-gray-400'
+                    }`}
+                    style={isUnlocked ? { backgroundColor: stage.colorHex, borderColor: '#ffffff' } : {}}
+                  >
+                    <Icon className="w-8 h-8" />
+                  </div>
+
+                  <div className={`absolute top-24 w-32 text-center transition-all duration-300 ${isUnlocked ? 'opacity-100' : 'opacity-50'}`}>
+                    <p className={`font-bold ${isUnlocked ? 'text-gray-800' : 'text-gray-400'}`}>{stage.title}</p>
+                    <p className="text-xs text-gray-500">{stage.subtitle}</p>
+                    {isCompleted && <CheckCircle2 className="w-5 h-5 text-green-500 mx-auto mt-1" />}
+                  </div>
+                </div>
+
+                {index < STAGES.length - 1 && (
+                  <div className="w-16 h-3 mx-2 rounded-full overflow-hidden bg-gray-200">
+                    <div
+                      className="h-full transition-all duration-1000"
+                      style={{
+                        width: isCompleted ? '100%' : '0%',
+                        backgroundColor: isCompleted ? stage.colorHex : 'transparent'
+                      }}
+                    />
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
+  const StageLayout = ({ stage, children }) => (
+    <div className="max-w-3xl mx-auto w-full p-4 animate-fade-in">
+      <div className="flex items-center justify-between mb-8 bg-white p-4 rounded-2xl shadow-sm">
+        <button onClick={() => setCurrentView('map')} className="flex items-center text-gray-500 hover:text-blue-500 transition-colors font-medium">
+          <Map className="w-5 h-5 mr-2" /> 路線圖
+        </button>
+        <div className="text-center">
+          <span
+            className="inline-block px-3 py-1 rounded-full text-white text-xs font-bold mb-1"
+            style={{ backgroundColor: stage.colorHex }}
+          >
+            Stage {stage.id}
+          </span>
+          <h2 className="text-xl font-bold text-gray-800">{stage.title}</h2>
+        </div>
+        <div className="w-24"></div>
+      </div>
+      <div className="bg-white rounded-3xl shadow-xl p-8 min-h-[60vh] flex flex-col relative overflow-hidden">
+        {children}
+      </div>
+    </div>
+  );
+
+  const Stage1 = () => {
+    const words = VOCABULARY_DATA[activeUnit].words;
+    const [currentIndex, setCurrentIndex] = useState(0);
+
+    return (
+      <StageLayout stage={STAGES[0]}>
+        <div className="text-center mb-6">
+          <p className="text-gray-500 font-medium">先聽聽看，再跟著大聲唸出來！👂🗣️</p>
+        </div>
+
+        <div className="flex-grow flex flex-col items-center justify-center">
+          <div className="bg-blue-50 w-full max-w-md rounded-3xl p-10 flex flex-col items-center justify-center shadow-inner relative">
+            <span className="absolute top-4 left-4 text-blue-300 font-bold text-xl">{currentIndex + 1} / {words.length}</span>
+            <button
+              onClick={() => playAudio(words[currentIndex].word)}
+              className="bg-blue-500 hover:bg-blue-600 text-white rounded-full p-6 shadow-lg hover:scale-110 transition-transform mb-8"
+            >
+              <Volume2 className="w-12 h-12" />
+            </button>
+            <h1 className="text-6xl font-black text-gray-800 mb-4 tracking-wider">{words[currentIndex].word}</h1>
+            <h2 className="text-3xl font-bold text-gray-500">{words[currentIndex].meaning}</h2>
+          </div>
+        </div>
+
+        <div className="flex justify-between items-center mt-8">
+          <button
+            onClick={() => setCurrentIndex((prev) => prev - 1)}
+            disabled={currentIndex === 0}
+            className="px-6 py-3 rounded-full font-bold text-gray-500 bg-gray-100 hover:bg-gray-200 disabled:opacity-50"
+          >
+            上一字
+          </button>
+
+          {currentIndex === words.length - 1 ? (
+            <button
+              onClick={() => handleStageComplete(1)}
+              className="px-8 py-3 rounded-full font-bold text-white bg-green-500 hover:bg-green-600 shadow-md flex items-center"
+            >
+              完成探索，前往下一關！ <ArrowRight className="ml-2 w-5 h-5" />
+            </button>
+          ) : (
+            <button
+              onClick={() => setCurrentIndex((prev) => prev + 1)}
+              className="px-6 py-3 rounded-full font-bold text-white bg-blue-500 hover:bg-blue-600 shadow-md"
+            >
+              下一字
+            </button>
+          )}
+        </div>
+      </StageLayout>
+    );
+  };
+
+  const Stage2 = () => {
+    const words = VOCABULARY_DATA[activeUnit].words;
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [localGreen, setLocalGreen] = useState([]);
+    const [localRed, setLocalRed] = useState([]);
+    const [isFinished, setIsFinished] = useState(false);
+
+    const handleVote = (isGreen) => {
+      const currentWord = words[currentIndex];
+
+      if (isGreen) {
+        setLocalGreen((prev) => [...prev, currentWord]);
+      } else {
+        setLocalRed((prev) => [...prev, currentWord]);
+      }
+
+      if (currentIndex < words.length - 1) {
+        setCurrentIndex((prev) => prev + 1);
+      } else {
+        setIsFinished(true);
+      }
+    };
+
+    if (isFinished) {
+      return (
+        <StageLayout stage={STAGES[1]}>
+          <div className="flex-grow flex flex-col items-center justify-center text-center space-y-6">
+            <div className="w-24 h-24 bg-green-100 text-green-500 rounded-full flex items-center justify-center mb-4">
+              <CheckCircle2 className="w-12 h-12" />
+            </div>
+            <h2 className="text-3xl font-bold text-gray-800">分類完成！</h2>
+            <p className="text-xl text-gray-600">
+              熟悉的單字有 <span className="text-green-500 font-bold">{localGreen.length}</span> 個
+              <br />
+              需要練習的單字有 <span className="text-red-500 font-bold">{localRed.length}</span> 個
+            </p>
+            <p className="text-gray-500">別擔心，紅燈單字我們等一下會一起把它們救回來！</p>
+            <button
+              onClick={() => {
+                setGreenWords(localGreen);
+                setRedWords(localRed);
+                handleStageComplete(2);
+              }}
+              className="mt-8 px-8 py-4 rounded-full font-bold text-white bg-amber-500 hover:bg-amber-600 shadow-md flex items-center text-lg"
+            >
+              前往下一關 <ArrowRight className="ml-2 w-6 h-6" />
+            </button>
+          </div>
+        </StageLayout>
+      );
+    }
+
+    return (
+      <StageLayout stage={STAGES[1]}>
+        <div className="text-center mb-6">
+          <p className="text-gray-500 font-medium text-lg">誠實面對自己！熟悉的按綠燈🟢，還不太熟的按紅燈🔴</p>
+        </div>
+
+        <div className="flex-grow flex flex-col items-center justify-center">
+          <div className="mb-12 text-center">
+            <button
+              onClick={() => playAudio(words[currentIndex].word)}
+              className="mx-auto bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full p-4 mb-4 transition-colors"
+            >
+              <Volume2 className="w-8 h-8" />
+            </button>
+            <h1 className="text-6xl font-black text-gray-800 mb-2">{words[currentIndex].word}</h1>
+            <h2 className="text-2xl font-bold text-gray-400">{words[currentIndex].meaning}</h2>
+          </div>
+
+          <div className="flex space-x-8 w-full max-w-md">
+            <button
+              onClick={() => handleVote(false)}
+              className="flex-1 flex flex-col items-center justify-center bg-rose-50 hover:bg-rose-100 border-2 border-rose-200 rounded-3xl p-6 transition-all hover:scale-105 group"
+            >
+              <div className="w-16 h-16 bg-rose-500 rounded-full flex items-center justify-center text-white mb-4 shadow-md group-hover:shadow-lg">
+                <X className="w-8 h-8" />
+              </div>
+              <span className="text-rose-600 font-bold text-lg">紅燈：還不太熟</span>
+            </button>
+
+            <button
+              onClick={() => handleVote(true)}
+              className="flex-1 flex flex-col items-center justify-center bg-emerald-50 hover:bg-emerald-100 border-2 border-emerald-200 rounded-3xl p-6 transition-all hover:scale-105 group"
+            >
+              <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center text-white mb-4 shadow-md group-hover:shadow-lg">
+                <Check className="w-8 h-8" />
+              </div>
+              <span className="text-emerald-600 font-bold text-lg">綠燈：我很熟了</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="mt-8 text-center text-gray-400 font-bold">
+          進度：{currentIndex + 1} / {words.length}
+        </div>
+      </StageLayout>
+    );
+  };
+
+  const Stage3 = () => {
+    const [rescuedCount, setRescuedCount] = useState(0);
+
+    if (redWords.length === 0) {
+      return (
+        <StageLayout stage={STAGES[2]}>
+          <div className="flex-grow flex flex-col items-center justify-center text-center space-y-6">
+            <div className="w-24 h-24 bg-green-100 text-green-500 rounded-full flex items-center justify-center mb-4">
+              <Star className="w-12 h-12" />
+            </div>
+            <h2 className="text-3xl font-bold text-gray-800">太棒了！沒有紅燈單字！</h2>
+            <p className="text-xl text-gray-600">你對這個單元的單字都很熟悉喔！</p>
+            <button
+              onClick={() => handleStageComplete(3)}
+              className="mt-8 px-8 py-4 rounded-full font-bold text-white bg-rose-500 hover:bg-rose-600 shadow-md flex items-center text-lg"
+            >
+              直接前往下一關 <ArrowRight className="ml-2 w-6 h-6" />
+            </button>
+          </div>
+        </StageLayout>
+      );
+    }
+
+    if (rescuedCount === redWords.length) {
+      return (
+        <StageLayout stage={STAGES[2]}>
+          <div className="flex-grow flex flex-col items-center justify-center text-center space-y-6">
+            <div className="w-24 h-24 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center mb-4">
+              <ShieldCheck className="w-12 h-12" />
+            </div>
+            <h2 className="text-3xl font-bold text-gray-800">救援成功！🚑</h2>
+            <p className="text-xl text-gray-600">你把所有的紅燈單字都複習過了！為自己鼓掌！</p>
+            <button
+              onClick={() => handleStageComplete(3)}
+              className="mt-8 px-8 py-4 rounded-full font-bold text-white bg-rose-500 hover:bg-rose-600 shadow-md flex items-center text-lg"
+            >
+              準備好接受挑戰了嗎？ <ArrowRight className="ml-2 w-6 h-6" />
+            </button>
+          </div>
+        </StageLayout>
+      );
+    }
+
+    const currentWordObj = redWords[rescuedCount];
+
+    return (
+      <StageLayout stage={STAGES[2]}>
+        <div className="text-center mb-6">
+          <p className="text-gray-500 font-medium text-lg">點擊喇叭聽發音，多唸幾次，覺得有把握了就點擊「救援成功」！</p>
+        </div>
+
+        <div className="flex-grow flex flex-col items-center justify-center">
+          <div className="bg-rose-50 border-4 border-rose-200 w-full max-w-md rounded-3xl p-10 flex flex-col items-center justify-center relative">
+            <div className="absolute -top-6 bg-rose-500 text-white px-6 py-2 rounded-full font-bold shadow-md flex items-center">
+              <ShieldCheck className="w-5 h-5 mr-2" /> 搶救中 {rescuedCount + 1} / {redWords.length}
+            </div>
+            <h1 className="text-6xl font-black text-rose-600 mb-2 mt-4">{currentWordObj.word}</h1>
+            <h2 className="text-2xl font-bold text-rose-400 mb-8">{currentWordObj.meaning}</h2>
+
+            <button
+              onClick={() => playAudio(currentWordObj.word)}
+              className="bg-blue-500 hover:bg-blue-600 text-white rounded-full px-8 py-4 shadow-lg hover:scale-105 transition-all flex items-center font-bold text-lg mb-6 w-full justify-center"
+            >
+              <Volume2 className="w-6 h-6 mr-3" /> 聽聽看怎麼唸
+            </button>
+
+            <button
+              onClick={() => setRescuedCount((prev) => prev + 1)}
+              className="bg-green-500 hover:bg-green-600 text-white rounded-full px-8 py-4 shadow-lg hover:scale-105 transition-all flex items-center font-bold text-lg w-full justify-center"
+            >
+              <Check className="w-6 h-6 mr-3" /> 我記住了！救援成功
+            </button>
+          </div>
+        </div>
+      </StageLayout>
+    );
+  };
+
+  const QuizStage = ({ stageId, type }) => {
+    const stageInfo = STAGES[stageId - 1];
+    const words = VOCABULARY_DATA[activeUnit].words;
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [options, setOptions] = useState([]);
+    const [score, setScore] = useState(0);
+    const [isFinished, setIsFinished] = useState(false);
+    const [selectedOption, setSelectedOption] = useState(null);
+    const [isCorrect, setIsCorrect] = useState(null);
+
+    useEffect(() => {
+      if (currentIndex < words.length) {
+        const currentWord = words[currentIndex];
+        const pool = words.filter((w) => w.id !== currentWord.id);
+        const shuffledPool = [...pool].sort(() => 0.5 - Math.random());
+        const distractors = shuffledPool.slice(0, 2);
+
+        const newOptions = [currentWord, ...distractors].sort(() => 0.5 - Math.random());
+        setOptions(newOptions);
+        setSelectedOption(null);
+        setIsCorrect(null);
+
+        if (type.startsWith('sound')) {
+          setTimeout(() => playAudio(currentWord.word), 300);
+        }
+      }
+    }, [currentIndex, words, type]);
+
+    const handleSelect = (option) => {
+      if (selectedOption !== null) return;
+
+      const correct = option.id === words[currentIndex].id;
+      setSelectedOption(option);
+      setIsCorrect(correct);
+
+      if (correct) {
+        setScore((prev) => prev + 1);
+        playAudio('Correct');
+      } else if (type === 'word-meaning') {
+        playAudio(words[currentIndex].word);
+      }
+
+      setTimeout(() => {
+        if (currentIndex < words.length - 1) {
+          setCurrentIndex((prev) => prev + 1);
+        } else {
+          setIsFinished(true);
+        }
+      }, 1200);
+    };
+
+    if (isFinished) {
+      return (
+        <StageLayout stage={stageInfo}>
+          <div className="flex-grow flex flex-col items-center justify-center text-center space-y-6 animate-fade-in">
+            <div className="w-32 h-32 bg-yellow-100 text-yellow-500 rounded-full flex items-center justify-center mb-4">
+              <Award className="w-16 h-16" />
+            </div>
+            <h2 className="text-4xl font-black text-gray-800">測驗完成！</h2>
+            <div className="bg-gray-50 rounded-2xl p-6 w-full max-w-sm">
+              <p className="text-xl text-gray-600 mb-2">你的得分</p>
+              <p className="text-5xl font-black text-blue-500">
+                {score} <span className="text-2xl text-gray-400">/ {words.length}</span>
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setQuizScores((prev) => ({ ...prev, [stageId]: score }));
+                handleStageComplete(stageId);
+              }}
+              className="mt-8 px-8 py-4 rounded-full font-bold text-white shadow-md flex items-center text-lg hover:opacity-90"
+              style={{ backgroundColor: stageInfo.colorHex }}
+            >
+              繼續前進 <ArrowRight className="ml-2 w-6 h-6" />
+            </button>
+          </div>
+        </StageLayout>
+      );
+    }
+
+    if (currentIndex >= words.length || options.length === 0) return null;
+
+    const currentWord = words[currentIndex];
+
+    let questionPromptElement = null;
+    let getOptionText = (opt) => opt.word;
+
+    if (type === 'sound-word') {
+      questionPromptElement = (
+        <button
+          onClick={() => playAudio(currentWord.word)}
+          className="bg-indigo-100 hover:bg-indigo-200 text-indigo-600 rounded-full p-8 shadow-inner hover:scale-105 transition-all mb-8 animate-bounce-slow"
+        >
+          <Volume2 className="w-16 h-16" />
+        </button>
+      );
+      getOptionText = (opt) => opt.word;
+    } else if (type === 'sound-meaning') {
+      questionPromptElement = (
+        <button
+          onClick={() => playAudio(currentWord.word)}
+          className="bg-violet-100 hover:bg-violet-200 text-violet-600 rounded-full p-8 shadow-inner hover:scale-105 transition-all mb-8 animate-bounce-slow"
+        >
+          <Volume2 className="w-16 h-16" />
+        </button>
+      );
+      getOptionText = (opt) => opt.meaning;
+    } else if (type === 'word-meaning') {
+      questionPromptElement = (
+        <div className="bg-fuchsia-100 text-fuchsia-700 rounded-3xl py-10 px-16 shadow-inner mb-8 text-center">
+          <h1 className="text-6xl font-black tracking-widest">{currentWord.word}</h1>
+        </div>
+      );
+      getOptionText = (opt) => opt.meaning;
+    }
+
+    return (
+      <StageLayout stage={stageInfo}>
+        <div className="flex justify-between items-center mb-6 px-4">
+          <span className="text-gray-500 font-bold">進度: {currentIndex + 1} / {words.length}</span>
+          <span className="text-yellow-500 font-bold flex items-center">
+            <Star className="w-5 h-5 mr-1 fill-current" /> {score}
+          </span>
+        </div>
+
+        <div className="flex-grow flex flex-col items-center justify-center">
+          {questionPromptElement}
+
+          <div className="grid grid-cols-1 gap-4 w-full max-w-md">
+            {options.map((opt, idx) => {
+              let btnClass = "bg-white border-2 border-gray-200 hover:border-blue-400 hover:bg-blue-50 text-gray-700";
+
+              if (selectedOption?.id === opt.id) {
+                btnClass = isCorrect
+                  ? "bg-green-500 border-green-600 text-white shadow-lg scale-105"
+                  : "bg-red-500 border-red-600 text-white shadow-lg scale-105";
+              } else if (selectedOption !== null && opt.id === currentWord.id) {
+                btnClass = "bg-green-100 border-green-500 text-green-700 border-dashed";
+              }
+
+              return (
+                <button
+                  key={idx}
+                  onClick={() => handleSelect(opt)}
+                  disabled={selectedOption !== null}
+                  className={`relative py-5 px-6 rounded-2xl text-2xl font-bold transition-all duration-300 ${btnClass} flex justify-center items-center`}
+                >
+                  {getOptionText(opt)}
+                  {selectedOption?.id === opt.id && isCorrect && <Check className="w-8 h-8 absolute right-6" />}
+                  {selectedOption?.id === opt.id && !isCorrect && <X className="w-8 h-8 absolute right-6" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </StageLayout>
+    );
+  };
+
+  const Stage7 = () => {
+    const totalWords = VOCABULARY_DATA[activeUnit].words.length;
+    const totalScore = quizScores[4] + quizScores[5] + quizScores[6];
+    const maxTotalScore = totalWords * 3;
+    const accuracy = Math.round((totalScore / maxTotalScore) * 100) || 0;
+
+    let message = "";
+    if (accuracy >= 90) message = "太神啦！你簡直是單字大師！🏆";
+    else if (accuracy >= 70) message = "很棒的表現！繼續保持喔！🌟";
+    else message = "練習有成！多玩幾次會更熟練喔！💪";
+
+    return (
+      <StageLayout stage={STAGES[6]}>
+        <div className="flex-grow flex flex-col items-center py-6 animate-fade-in">
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-black text-teal-600 mb-2">學習報告</h1>
+            <p className="text-xl text-gray-600 font-bold">{message}</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-2xl mb-8">
+            <div className="bg-white border-2 border-gray-100 rounded-3xl p-6 flex items-center shadow-sm">
+              <div className="w-16 h-16 bg-blue-100 text-blue-500 rounded-full flex items-center justify-center mr-4">
+                <Star className="w-8 h-8 fill-current" />
+              </div>
+              <div>
+                <p className="text-gray-500 font-bold">總闖關分數</p>
+                <p className="text-3xl font-black text-gray-800">
+                  {totalScore} <span className="text-lg text-gray-400">/ {maxTotalScore}</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-white border-2 border-gray-100 rounded-3xl p-6 flex items-center shadow-sm">
+              <div className="w-16 h-16 bg-green-100 text-green-500 rounded-full flex items-center justify-center mr-4">
+                <CheckCircle2 className="w-8 h-8" />
+              </div>
+              <div>
+                <p className="text-gray-500 font-bold">綠燈單字 (首輪)</p>
+                <p className="text-3xl font-black text-gray-800">
+                  {greenWords.length} <span className="text-lg text-gray-400">/ {totalWords}</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-rose-50 border-2 border-rose-100 rounded-3xl p-6 md:col-span-2 shadow-sm">
+              <div className="flex items-center mb-4">
+                <ShieldCheck className="w-6 h-6 text-rose-500 mr-2" />
+                <h3 className="text-lg font-bold text-gray-800">救援紀錄</h3>
+              </div>
+              {redWords.length > 0 ? (
+                <div>
+                  <p className="text-gray-600 mb-2">
+                    你成功拯救了以下 {redWords.length} 個單字，它們現在更深刻地印在你的腦海裡了：
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {redWords.map((w) => (
+                      <span key={w.id} className="bg-white text-rose-600 px-4 py-2 rounded-full font-bold shadow-sm border border-rose-100">
+                        {w.word} ({w.meaning})
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-gray-600 italic">這次沒有需要救援的單字，基本功非常扎實喔！</p>
+              )}
+            </div>
+          </div>
+
+          <div className="flex space-x-4 mt-auto">
+            <button
+              onClick={() => {
+                setHighestUnlockedStage(1);
+                setActiveStage(1);
+                setGreenWords([]);
+                setRedWords([]);
+                setQuizScores({ 4: 0, 5: 0, 6: 0 });
+                setCurrentView('stage');
+              }}
+              className="px-8 py-4 rounded-full font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 shadow-sm flex items-center transition-colors"
+            >
+              <RotateCcw className="w-5 h-5 mr-2" /> 再玩一次
+            </button>
+
+            <button
+              onClick={() => {
+                setCurrentView('home');
+                setActiveUnit(null);
+              }}
+              className="px-8 py-4 rounded-full font-bold text-white bg-teal-500 hover:bg-teal-600 shadow-md flex items-center transition-colors"
+            >
+              <Home className="w-5 h-5 mr-2" /> 回到大廳
+            </button>
+          </div>
+        </div>
+      </StageLayout>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 font-sans text-gray-800">
+      <style>{`
+        .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .animate-bounce-slow { animation: bounceSlow 3s infinite; }
+        @keyframes bounceSlow {
+          0%, 100% { transform: translateY(-5%); }
+          50% { transform: translateY(5%); }
+        }
+      `}</style>
+
+      <div className="bg-white border-b border-gray-200 py-3 px-6 flex justify-between items-center sticky top-0 z-50">
+        <div className="flex items-center text-blue-600 font-black text-xl tracking-tight cursor-pointer" onClick={() => setCurrentView('home')}>
+          <Star className="w-6 h-6 mr-2 fill-current text-yellow-400" />
+          Wonder Words 2
+        </div>
+
+        {activeUnit && currentView !== 'home' && (
+          <div className="text-sm font-bold text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+            {VOCABULARY_DATA[activeUnit].title}
+          </div>
+        )}
+      </div>
+
+      <main className="p-4 md:p-8">
+        {currentView === 'home' && <HomeView />}
+        {currentView === 'map' && activeUnit && <MapView />}
+        {currentView === 'stage' && activeUnit && (
+          <>
+            {activeStage === 1 && <Stage1 />}
+            {activeStage === 2 && <Stage2 />}
+            {activeStage === 3 && <Stage3 />}
+            {activeStage === 4 && <QuizStage stageId={4} type="sound-word" />}
+            {activeStage === 5 && <QuizStage stageId={5} type="sound-meaning" />}
+            {activeStage === 6 && <QuizStage stageId={6} type="word-meaning" />}
+            {activeStage === 7 && <Stage7 />}
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
